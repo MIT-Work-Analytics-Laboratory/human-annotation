@@ -173,6 +173,9 @@
       <div class="big">All items answered. Thank you!</div>
       <p class="small">Click below to send your answers back to the MTurk HIT page.</p>
       <input type="hidden" id="answersJson">
+      <p style="margin:12px 0 14px;">
+        <button class="ghost" id="btn-review" type="button">Go back / review answers</button>
+      </p>
       <button class="primary" id="btn-submit" type="button">Send answers to MTurk page</button>
       <p class="small" id="unanswered-note"></p>
       <p class="small" id="submit-note"></p>
@@ -336,6 +339,17 @@ function verdictFromDatasetChoice(choice, sideOfOurs) {
   if (choice === "A" || choice === "B") return "eloundou";
   return "ambiguous";
 }
+function datasetLabelForChoice(it, choice) {
+  if (choice === "A") return it.label_a;
+  if (choice === "B") return it.label_b;
+  return null;
+}
+function sourceForDatasetChoice(choice, sideOfOurs) {
+  if (!choice || !sideOfOurs) return null;
+  if (choice === sideOfOurs) return "ours";
+  if (choice === "A" || choice === "B") return "eloundou";
+  return choice;
+}
 function buildAnswerRow(it, a) {
   let datasetChoice = a.choice || null;
   if ((datasetChoice === "A" || datasetChoice === "B") && !a.displayed_a_is_dataset_a) {
@@ -345,6 +359,10 @@ function buildAnswerRow(it, a) {
   const labels = displayedAIsDatasetA === null
     ? {label_displayed_left: null, label_displayed_right: null}
     : displayedLabels(it, displayedAIsDatasetA);
+  const sideOfOurs = it.side_of_ours || null;
+  const sideOfEloundou = sideOfOurs === "A" ? "B" : sideOfOurs === "B" ? "A" : null;
+  const choiceLabel = datasetLabelForChoice(it, datasetChoice);
+  const choiceSource = sourceForDatasetChoice(datasetChoice, sideOfOurs);
   return {
     item_id: it.item_id,
     is_attention_check: !!it.is_attention_check,
@@ -353,12 +371,17 @@ function buildAnswerRow(it, a) {
     label_dataset_b: it.label_b,
     label_ours: it.label_ours || null,
     label_eloundou: it.label_eloundou || null,
-    side_of_ours: it.side_of_ours || null,
+    side_of_ours: sideOfOurs,
+    side_of_eloundou: sideOfEloundou,
     displayed_a_is_dataset_a: displayedAIsDatasetA,
     ...labels,
     choice_displayed: a.choice || null,
     choice_dataset: datasetChoice,
-    verdict: verdictFromDatasetChoice(datasetChoice, it.side_of_ours),
+    choice_label: choiceLabel,
+    choice_source: choiceSource,
+    chose_ours: choiceSource === "ours",
+    chose_eloundou: choiceSource === "eloundou",
+    verdict: verdictFromDatasetChoice(datasetChoice, sideOfOurs),
     confidence: a.confidence || null,
     comment: a.comment || null,
     time_ms: a.time_ms || null,
@@ -416,8 +439,9 @@ function showDone() {
   $("done-card").classList.remove("hidden");
   const missing = order.map(i => items[i]).filter(it => !(answers[it.item_id] || {}).choice);
   $("btn-submit").disabled = missing.length > 0 || isPreview;
+  $("btn-review").textContent = missing.length ? "Go to first unanswered item" : "Review last item";
   $("unanswered-note").textContent = missing.length
-    ? `${missing.length} item(s) still unanswered. Use Previous to go back.`
+    ? `${missing.length} item(s) still unanswered. Click "Go to first unanswered item" before sending.`
     : "";
   $("submit-note").innerHTML = isPreview
     ? '<span class="warn">Preview mode:</span> accept the HIT before sending answers.'
@@ -464,6 +488,12 @@ $("comment").addEventListener("change", e => setAnswer({comment: e.target.value}
 $("btn-prev").addEventListener("click", () => { if (cur > 0) { cur--; save(); renderItem(); } });
 $("btn-next").addEventListener("click", () => { cur++; save(); renderItem(); });
 $("btn-finish").addEventListener("click", () => { cur = order.length; save(); renderItem(); });
+$("btn-review").addEventListener("click", () => {
+  const firstMissing = order.findIndex(i => !(answers[items[i].item_id] || {}).choice);
+  cur = firstMissing >= 0 ? firstMissing : Math.max(0, order.length - 1);
+  save();
+  renderItem();
+});
 $("btn-submit").addEventListener("click", sendAnswersToMturkPage);
 </script>
 </body>
