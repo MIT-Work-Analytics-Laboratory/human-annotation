@@ -106,7 +106,7 @@
       <b>more appropriate</b> for the task according to the rubric below.
       If both are defensible pick "Both equally plausible"; if neither fits pick "Neither".</p>
       <p class="small">Your answers are saved in this browser automatically. At the end, click
-      <b>Submit to MTurk</b>. If you are previewing the HIT, submit will be disabled until you accept it.</p>
+      <b>Send answers to MTurk page</b>, then return to MTurk and click the MTurk Submit button.</p>
     </div>
 
     <div class="card">
@@ -171,15 +171,9 @@
 
     <div class="card done-banner hidden" id="done-card">
       <div class="big">All items answered. Thank you!</div>
-      <p class="small">Click below to submit your answers to MTurk.</p>
-      <form id="mturk-form" method="POST">
-        <input type="hidden" name="assignmentId" id="assignmentId">
-        <input type="hidden" name="workerId" id="workerId">
-        <input type="hidden" name="hitId" id="hitId">
-        <input type="hidden" name="batch_id" id="batchId">
-        <input type="hidden" name="answers_json" id="answersJson">
-        <button class="primary" id="btn-submit" type="submit">Submit to MTurk</button>
-      </form>
+      <p class="small">Click below to send your answers back to the MTurk HIT page.</p>
+      <input type="hidden" id="answersJson">
+      <button class="primary" id="btn-submit" type="button">Send answers to MTurk page</button>
       <p class="small" id="unanswered-note"></p>
       <p class="small" id="submit-note"></p>
     </div>
@@ -230,8 +224,7 @@ function param(name) { return new URLSearchParams(window.location.search).get(na
 const mturk = {
   assignmentId: param("assignmentId"),
   workerId: param("workerId"),
-  hitId: param("hitId"),
-  turkSubmitTo: param("turkSubmitTo") || "https://www.mturk.com/mturk/externalSubmit"
+  hitId: param("hitId")
 };
 const isPreview = !mturk.assignmentId || mturk.assignmentId === "ASSIGNMENT_ID_NOT_AVAILABLE";
 
@@ -363,6 +356,38 @@ function buildPayload() {
   };
 }
 
+async function sendAnswersToMturkPage() {
+  const payload = buildPayload();
+  const payloadJson = JSON.stringify(payload);
+  $("answersJson").value = payloadJson;
+
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(payloadJson);
+    copied = true;
+  } catch (e) {
+    copied = false;
+  }
+
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage({
+      type: "ai_exposure_annotation_complete",
+      batch_id: BATCH_ID,
+      answers_json: payloadJson
+    }, "*");
+    try { window.opener.focus(); } catch (e) {}
+    $("submit-note").innerHTML =
+      '<span class="warn">Answers sent.</span> Return to the MTurk tab and click the MTurk Submit button.';
+  } else {
+    $("submit-note").innerHTML = copied
+      ? '<span class="warn">Answers copied.</span> Return to the MTurk tab, paste if needed, then click Submit.'
+      : '<span class="warn">Could not reach the MTurk tab.</span> Return to MTurk and click Submit only if the page says answers were received.';
+  }
+
+  $("btn-submit").textContent = "Answers sent - return to MTurk";
+  $("btn-submit").disabled = true;
+}
+
 function showDone() {
   $("item-card").classList.add("hidden");
   $("done-card").classList.remove("hidden");
@@ -372,8 +397,8 @@ function showDone() {
     ? `${missing.length} item(s) still unanswered. Use Previous to go back.`
     : "";
   $("submit-note").innerHTML = isPreview
-    ? '<span class="warn">Preview mode:</span> accept the HIT before submitting.'
-    : "Submitting sends your answers directly to MTurk.";
+    ? '<span class="warn">Preview mode:</span> accept the HIT before sending answers.'
+    : "This sends your answers to the MTurk HIT page. Then return to MTurk and click Submit.";
   $("answersJson").value = JSON.stringify(buildPayload());
   updateProgress();
 }
@@ -381,11 +406,6 @@ function showDone() {
 renderRubric("rubric-text");
 renderRubric("rubric-text-2");
 $("intro-count").textContent = DATASET.items.length;
-$("assignmentId").value = mturk.assignmentId;
-$("workerId").value = mturk.workerId;
-$("hitId").value = mturk.hitId;
-$("batchId").value = BATCH_ID;
-$("mturk-form").action = mturk.turkSubmitTo.replace(/\/$/, "") + "/mturk/externalSubmit";
 
 if (mturk.workerId) {
   $("annotator-id").value = mturk.workerId;
@@ -421,9 +441,7 @@ $("comment").addEventListener("change", e => setAnswer({comment: e.target.value}
 $("btn-prev").addEventListener("click", () => { if (cur > 0) { cur--; save(); renderItem(); } });
 $("btn-next").addEventListener("click", () => { cur++; save(); renderItem(); });
 $("btn-finish").addEventListener("click", () => { cur = order.length; save(); renderItem(); });
-$("mturk-form").addEventListener("submit", () => {
-  $("answersJson").value = JSON.stringify(buildPayload());
-});
+$("btn-submit").addEventListener("click", sendAnswersToMturkPage);
 </script>
 </body>
 </html>
