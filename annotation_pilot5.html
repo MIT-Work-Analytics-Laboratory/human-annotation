@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Exposure Label Annotation — pilot5</title>
+<style>
+  :root {
+    --bg: #f6f7fb; --card: #ffffff; --ink: #1c2333; --muted: #5b6478;
+    --accent: #3b5bdb; --accent-soft: #e7ecff; --border: #e2e6f0;
+    --good: #2f9e44; --warn: #e8590c; --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.5;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 24px 16px 96px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 0 0 8px; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(20, 30, 60, .06);
+  }
+  .rubric { font-size: .88rem; color: var(--muted); white-space: pre-wrap; }
+  .rubric b { color: var(--ink); }
+  .rubric-short { display: grid; gap: 8px; margin-bottom: 10px; }
+  .rubric-row { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .rubric-row b { color: var(--ink); }
+  details summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+  label { font-weight: 600; font-size: .9rem; }
+  input[type=text] {
+    width: 100%; padding: 10px 12px; font-size: 1rem; border: 1px solid var(--border);
+    border-radius: 8px; margin-top: 6px;
+  }
+  textarea {
+    width: 100%; min-height: 56px; padding: 10px 12px; font-size: .92rem;
+    border: 1px solid var(--border); border-radius: 8px; resize: vertical;
+  }
+  button {
+    font: inherit; border: none; border-radius: 10px; padding: 10px 18px;
+    cursor: pointer; font-weight: 600;
+  }
+  .primary { background: var(--accent); color: #fff; }
+  .primary:disabled { background: #aab4d6; cursor: not-allowed; }
+  .ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .meta { font-size: .82rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .task-text { font-size: 1.08rem; font-weight: 600; margin: 6px 0 2px; }
+  .occ { color: var(--muted); margin-bottom: 14px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  @media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
+  .cand {
+    border: 2px solid var(--border); border-radius: 12px; padding: 14px 16px;
+    cursor: pointer; transition: border-color .12s, background .12s; background: #fff;
+  }
+  .cand:hover { border-color: #b9c4ea; }
+  .cand.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .cand .tag { font-weight: 700; color: var(--accent); font-size: .85rem; }
+  .cand .lbl { font-size: 1.4rem; font-weight: 800; margin: 2px 0; }
+  .cand .desc { font-size: .85rem; color: var(--muted); }
+  .row-choices { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 14px; }
+  .chip {
+    border: 1.5px solid var(--border); background: #fff; border-radius: 999px;
+    padding: 8px 16px; font-size: .9rem; cursor: pointer; font-weight: 600; color: var(--ink);
+  }
+  .chip.selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .conf { display: flex; gap: 6px; align-items: center; margin-bottom: 14px; }
+  .conf button {
+    width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--border);
+    background: #fff; font-weight: 700;
+  }
+  .conf button.selected { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .nav { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .progress-outer {
+    position: fixed; bottom: 0; left: 0; right: 0; background: var(--card);
+    border-top: 1px solid var(--border); padding: 10px 16px;
+  }
+  .progress-inner { max-width: 880px; margin: 0 auto; display: flex; align-items: center; gap: 14px; }
+  .bar { flex: 1; height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+  .bar > div { height: 100%; background: var(--accent); width: 0%; transition: width .2s; }
+  .count { font-size: .85rem; color: var(--muted); white-space: nowrap; }
+  .hidden { display: none; }
+  .pill {
+    display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .78rem;
+    background: var(--accent-soft); color: var(--accent); font-weight: 700;
+  }
+  .done-banner { text-align: center; padding: 28px 12px; }
+  .done-banner .big { font-size: 1.3rem; font-weight: 700; color: var(--good); margin-bottom: 8px; }
+  .small { font-size: .85rem; color: var(--muted); }
+  .warn { color: var(--warn); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="screen-intro">
+    <h1>AI Exposure Label Annotation</h1>
+    <div class="sub">Batch <span class="pill">pilot5</span> &middot; <span id="intro-count"></span> items</div>
+
+    <div class="card">
+      <h2>What you will do</h2>
+      <p>For each work task you will see <b>two candidate AI-exposure labels</b>,
+      shown anonymously as <b>A</b> and <b>B</b>. Pick the label that is
+      <b>more appropriate</b> for the task according to the rubric below.
+      If both are defensible pick "Both equally plausible"; if neither fits pick "Neither".</p>
+      <p class="small">Your answers are saved in this browser automatically. At the end, click
+      <b>Submit to MTurk</b>. If you are previewing the HIT, submit will be disabled until you accept it.</p>
+    </div>
+
+    <div class="card">
+      <h2>Exposure rubric</h2>
+      <div class="rubric" id="rubric-text"></div>
+      <p class="small" style="margin-top:10px">The key test is whether AI could cut the time needed to
+      complete the task <b>by at least 50%</b> at equal quality.</p>
+    </div>
+
+    <div class="card">
+      <label for="annotator-id">Worker ID</label>
+      <input type="text" id="annotator-id" autocomplete="off">
+      <p class="small" id="mturk-note"></p>
+      <button class="primary" id="btn-start" disabled>Start annotating</button>
+    </div>
+  </div>
+
+  <div id="screen-annotate" class="hidden">
+    <div class="card" id="item-card">
+      <div class="meta" id="item-meta"></div>
+      <div class="task-text" id="item-task"></div>
+      <div class="occ" id="item-occ"></div>
+
+      <div class="pair">
+        <div class="cand" id="cand-A">
+          <div class="tag">Candidate A</div>
+          <div class="lbl" id="label-A"></div>
+          <div class="desc" id="desc-A"></div>
+        </div>
+        <div class="cand" id="cand-B">
+          <div class="tag">Candidate B</div>
+          <div class="lbl" id="label-B"></div>
+          <div class="desc" id="desc-B"></div>
+        </div>
+      </div>
+
+      <div class="row-choices">
+        <button class="chip" data-choice="both">Both equally plausible</button>
+        <button class="chip" data-choice="neither">Neither is appropriate</button>
+      </div>
+
+      <label>Confidence (optional)</label>
+      <div class="conf" id="conf-row">
+        <button data-conf="1">1</button><button data-conf="2">2</button>
+        <button data-conf="3">3</button><button data-conf="4">4</button>
+        <button data-conf="5">5</button>
+        <span class="small">1 = guessing &middot; 5 = very confident</span>
+      </div>
+
+      <label for="comment">Comment (optional)</label>
+      <textarea id="comment" placeholder="Anything unclear or noteworthy about this task?"></textarea>
+
+      <div class="nav">
+        <button class="ghost" id="btn-prev">&larr; Previous</button>
+        <details style="flex:1; margin:0 14px;">
+          <summary style="font-size:.85rem;">Rubric reference</summary>
+          <div class="rubric" id="rubric-text-2" style="margin-top:8px;"></div>
+        </details>
+        <button class="primary" id="btn-next">Next &rarr;</button>
+      </div>
+    </div>
+
+    <div class="card done-banner hidden" id="done-card">
+      <div class="big">All items answered. Thank you!</div>
+      <p class="small">Click below to submit your answers to MTurk.</p>
+      <form id="mturk-form" method="POST">
+        <input type="hidden" name="assignmentId" id="assignmentId">
+        <input type="hidden" name="workerId" id="workerId">
+        <input type="hidden" name="hitId" id="hitId">
+        <input type="hidden" name="batch_id" id="batchId">
+        <input type="hidden" name="answers_json" id="answersJson">
+        <button class="primary" id="btn-submit" type="submit">Submit to MTurk</button>
+      </form>
+      <p class="small" id="unanswered-note"></p>
+      <p class="small" id="submit-note"></p>
+    </div>
+  </div>
+
+  <div class="progress-outer hidden" id="progress">
+    <div class="progress-inner">
+      <div class="bar"><div id="bar-fill"></div></div>
+      <span class="count" id="progress-count"></span>
+      <button class="ghost" id="btn-finish" style="padding:6px 12px; font-size:.85rem;">Finish</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const DATASET = {"meta": {"batch_id": "pilot5", "built": "2026-07-07T15:20:33", "source_dataset": "experiments/circularity/human/curated_easy_pro_ours_300.json", "n_real_items": 5, "n_attention_checks": 0, "exposure_rubric": "When determining exposure, apply a counterfactual test: can access to the described agentic system reduce the time required to complete the task at equivalent quality by at least half? Focus on the primary bottleneck of the task rather than marginal improvements in small subcomponents. If the evidence is ambiguous or the retrieved context only suggests general automation trends, assign the lowest exposure category that is still defensible under the rubric; do not default to high exposure (E2/E3) without clear support from the task and rubric.\n\n\nE0: No exposure -> Label tasks E0 if direct access to the 2026 agentic chatbot interface, cannot reduce the time it takes to complete this task with equivalent quality by half or more.\nTasks should also be classified as E0 if more than half of the work is inherently physical, embodied, or depends on in person human interaction that cannot be substituted by text, workspace actions, or browser based actions. Examples include operating machinery, performing a physical inspection or repair that requires touch or specialized instruments not available through the laptop, delivering an in person demonstration, or physically presenting to stakeholders where real time interpersonal dynamics and embodiment are central.\nE0 also covers tasks where the binding constraint is access to physical environments, regulated sign off that must be done in person, or real time interpersonal dynamics such as speeches or instruction giving that cannot be meaningfully accelerated by drafting, planning, or digital coordination alone. Drafting materials for such activities may be E1, but performing the embodied activity itself remains E0 if the embodied component is the dominant share of time and effort.\n\n\nE1: Direct exposure -> Label tasks E1 if using a 2026 agentic chatbot, without any additional specialized enterprise integrations beyond standard browser and workspace access, can cut the time to complete the task at equivalent quality by at least half.\nE1 assumes the agent operates through general purpose capabilities: text generation, reasoning, multi step planning, browsing public or credential accessible websites, and interacting with standard productivity software. It does not assume custom APIs, deep ERP or CRM embedding, structured database level querying, or organization specific tooling built specifically for the agent.\nE1 typically covers text and code generation or editing, translation, summarization and question answering over provided or web accessible documents, structured web research with citations, and routine digital administrative work that is mostly browser or workspace based such as filling forms, scheduling, building a deck from notes, cleaning a spreadsheet, or drafting and sending messages with user approval.\nE1 also includes tasks that benefit substantially from structured reasoning, cognitive scaffolding, and coordination support without requiring specialized enterprise integrations. This includes breaking down ambiguous problems into structured subcomponents and actionable plans, designing one time project roadmaps, timelines, milestone plans, execution checklists, drafting project briefs, outlining negotiation strategies, generating decision matrices, performing comparative analysis across documented options, synthesizing stakeholder inputs into coherent summaries, preparing structured reports, and orchestrating communication across teams using standard digital tools. If the worker could reasonably achieve a fifty percent or greater time reduction using only the agent's standalone capabilities and manual browser interaction, the task should be labeled E1.\n\n\nE2: Exposure by LLM powered applications -> Label tasks E2 if having access to the 2026 agentic chatbot alone may not reduce the time it takes to complete the task by at least half in practice, but it is easy to imagine additional software, deeper integrations, or organization specific custom tooling built on top of the agent that would reduce the time it takes by half or more.\nThe key distinction from E1 is that in E2 the primary bottleneck is not general reasoning, drafting, or manual browser navigation. Instead, the bottleneck lies in reliable, structured, permission aware access to proprietary systems; automated interaction with internal databases; long horizon monitoring; compliance constrained workflows; high assurance environments; or tight coupling with internal business logic. Anything that can't be done with the tool out of the box.\n\n\n\nE3: Exposure given image capabilities -> Suppose you had access to both the 2026 agentic chatbot and an integrated system capable of viewing, captioning, and generating images, including reading scanned PDFs, extracting text from images with high accuracy, interpreting diagrams, and analyzing video inputs. This system cannot reliably recover extremely fine physical measurements or tolerances unless those values are explicitly provided in text.\nLabel tasks as E3 only when access to these image capabilities, in addition to the agentic chatbot, enables a time reduction of at least fifty percent and visual understanding is a binding constraint for that reduction. E3 should be used only when visual interpretation, visual extraction, or image generation is central to the acceleration. If comparable time savings could be achieved using text alone, the task should not be labeled E3."}, "items": [{"item_id": "86d2f9c0bbc9", "occupation": "Educational, Guidance, and Career Counselors and Advisors", "job_family": "Community and Social Service", "task": "Review transcripts to ensure that students meet graduation or college entrance requirements, and write letters of recommendation.", "label_a": "E2", "label_b": "E1", "is_attention_check": false, "attention_expected": null}, {"item_id": "66ce4b9d0dfc", "occupation": "First-Line Supervisors of Landscaping, Lawn Service, and Groundskeeping Workers", "job_family": "Building and Grounds Cleaning and Maintenance", "task": "Inspect completed work to ensure conformance to specifications, standards, and contract requirements.", "label_a": "E2", "label_b": "E0", "is_attention_check": false, "attention_expected": null}, {"item_id": "ab9d19cf4369", "occupation": "Financial Risk Specialists", "job_family": "Business and Financial Operations", "task": "Meet with clients to answer queries on subjects such as risk exposure, market scenarios, or values-at-risk calculations.", "label_a": "E0", "label_b": "E2", "is_attention_check": false, "attention_expected": null}, {"item_id": "a654ba282d5e", "occupation": "First-Line Supervisors of Construction Trades and Extraction Workers", "job_family": "Construction and Extraction", "task": "Supervise, coordinate, or schedule the activities of construction or extractive workers.", "label_a": "E2", "label_b": "E0", "is_attention_check": false, "attention_expected": null}, {"item_id": "da1dd184c7c8", "occupation": "First-Line Supervisors of Landscaping, Lawn Service, and Groundskeeping Workers", "job_family": "Building and Grounds Cleaning and Maintenance", "task": "Tour grounds, such as parks, botanical gardens, cemeteries, or golf courses, to inspect conditions of plants and soil.", "label_a": "E2", "label_b": "E0", "is_attention_check": false, "attention_expected": null}]};
+const BATCH_ID = "pilot5";
+const RUBRIC = DATASET.meta.exposure_rubric;
+const LABEL_DESCRIPTIONS = {
+  "E0": "No exposure: AI may help, but cannot cut task time by 50%+.",
+  "E1": "Direct exposure: a 2026 agentic chatbot can cut task time by 50%+ using standard browser/workspace tools.",
+  "E2": "Application exposure: custom software or deeper enterprise integrations are needed for a 50%+ time cut.",
+  "E3": "Image exposure: image/PDF/video understanding is the key extra capability needed for a 50%+ time cut."
+};
+const SHORT_RUBRIC_ROWS = [
+  ["E0", LABEL_DESCRIPTIONS.E0],
+  ["E1", LABEL_DESCRIPTIONS.E1],
+  ["E2", LABEL_DESCRIPTIONS.E2],
+  ["E3", LABEL_DESCRIPTIONS.E3]
+];
+
+function hashStr(s) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function param(name) { return new URLSearchParams(window.location.search).get(name) || ""; }
+
+const mturk = {
+  assignmentId: param("assignmentId"),
+  workerId: param("workerId"),
+  hitId: param("hitId"),
+  turkSubmitTo: param("turkSubmitTo") || "https://www.mturk.com/mturk/externalSubmit"
+};
+const isPreview = !mturk.assignmentId || mturk.assignmentId === "ASSIGNMENT_ID_NOT_AVAILABLE";
+
+let annotatorId = null;
+let items = [];
+let order = [];
+let cur = 0;
+let answers = {};
+let itemShownAt = null;
+
+const $ = (id) => document.getElementById(id);
+const storageKey = () => `rag_annot_${BATCH_ID}_${annotatorId || "unknown"}`;
+
+function renderRubric(targetId) {
+  const rows = SHORT_RUBRIC_ROWS.map(([label, desc]) =>
+    `<div class="rubric-row"><b>${label}</b>: ${desc}</div>`).join("");
+  $(targetId).innerHTML = `
+    <div class="rubric-short">${rows}</div>
+    <details>
+      <summary>View detailed definitions</summary>
+      <div class="rubric" style="margin-top:8px;"></div>
+    </details>`;
+  $(targetId).querySelector(".rubric").textContent = RUBRIC;
+}
+
+function prepareItems() {
+  const rng = mulberry32(hashStr(annotatorId + "|" + BATCH_ID));
+  order = DATASET.items.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  items = DATASET.items;
+}
+function displayFlip(item) {
+  return hashStr(annotatorId + "|" + item.item_id) % 2 === 1;
+}
+function save() { localStorage.setItem(storageKey(), JSON.stringify({answers, cur})); }
+function load() {
+  try {
+    const raw = localStorage.getItem(storageKey());
+    if (raw) { const st = JSON.parse(raw); answers = st.answers || {}; cur = st.cur || 0; }
+  } catch (e) { answers = {}; cur = 0; }
+}
+
+function renderItem() {
+  const total = order.length;
+  if (cur >= total) { showDone(); return; }
+  $("done-card").classList.add("hidden");
+  $("item-card").classList.remove("hidden");
+  const item = items[order[cur]];
+  const flip = displayFlip(item);
+  const dispA = flip ? item.label_b : item.label_a;
+  const dispB = flip ? item.label_a : item.label_b;
+
+  $("item-meta").textContent = `Item ${cur + 1} of ${total} · ${item.job_family || ""}`;
+  $("item-task").textContent = item.task;
+  $("item-occ").textContent = `Occupation: ${item.occupation}`;
+  $("label-A").textContent = dispA;
+  $("label-B").textContent = dispB;
+  $("desc-A").textContent = LABEL_DESCRIPTIONS[dispA] || "";
+  $("desc-B").textContent = LABEL_DESCRIPTIONS[dispB] || "";
+
+  const ans = answers[item.item_id] || {};
+  $("cand-A").classList.toggle("selected", ans.choice === "A");
+  $("cand-B").classList.toggle("selected", ans.choice === "B");
+  document.querySelectorAll(".chip").forEach(c =>
+    c.classList.toggle("selected", ans.choice === c.dataset.choice));
+  document.querySelectorAll("#conf-row button").forEach(b =>
+    b.classList.toggle("selected", String(ans.confidence) === b.dataset.conf));
+  $("comment").value = ans.comment || "";
+  $("btn-prev").disabled = cur === 0;
+  $("btn-next").textContent = (cur === total - 1) ? "Finish" : "Next →";
+  itemShownAt = Date.now();
+  updateProgress();
+  window.scrollTo({top: 0});
+}
+
+function updateProgress() {
+  const total = order.length;
+  const done = Object.values(answers).filter(a => a.choice).length;
+  $("bar-fill").style.width = `${(100 * done / total).toFixed(1)}%`;
+  $("progress-count").textContent = `${done} / ${total} answered`;
+}
+
+function setAnswer(patch) {
+  const item = items[order[cur]];
+  const prev = answers[item.item_id] || {};
+  const elapsed = itemShownAt ? Date.now() - itemShownAt : 0;
+  answers[item.item_id] = Object.assign({}, prev, patch, {
+    displayed_a_is_dataset_a: !displayFlip(item),
+    time_ms: (prev.time_ms || 0) + (patch.choice && !prev.choice ? elapsed : 0),
+    ts: new Date().toISOString()
+  });
+  save();
+  renderItem();
+}
+
+function buildPayload() {
+  const rows = order.map(i => {
+    const it = items[i];
+    const a = answers[it.item_id] || {};
+    let datasetChoice = a.choice || null;
+    if ((datasetChoice === "A" || datasetChoice === "B") && !a.displayed_a_is_dataset_a) {
+      datasetChoice = datasetChoice === "A" ? "B" : "A";
+    }
+    return {
+      item_id: it.item_id,
+      is_attention_check: !!it.is_attention_check,
+      attention_expected: it.attention_expected || null,
+      displayed_a_is_dataset_a: a.displayed_a_is_dataset_a !== undefined ? a.displayed_a_is_dataset_a : null,
+      choice_displayed: a.choice || null,
+      choice_dataset: datasetChoice,
+      confidence: a.confidence || null,
+      comment: a.comment || null,
+      time_ms: a.time_ms || null,
+      answered_at: a.ts || null
+    };
+  });
+  return {
+    batch_id: BATCH_ID,
+    annotator_id: annotatorId,
+    worker_id: mturk.workerId || null,
+    assignment_id: mturk.assignmentId || null,
+    hit_id: mturk.hitId || null,
+    exported_at: new Date().toISOString(),
+    n_items: rows.length,
+    answers: rows
+  };
+}
+
+function showDone() {
+  $("item-card").classList.add("hidden");
+  $("done-card").classList.remove("hidden");
+  const missing = order.map(i => items[i]).filter(it => !(answers[it.item_id] || {}).choice);
+  $("btn-submit").disabled = missing.length > 0 || isPreview;
+  $("unanswered-note").textContent = missing.length
+    ? `${missing.length} item(s) still unanswered. Use Previous to go back.`
+    : "";
+  $("submit-note").innerHTML = isPreview
+    ? '<span class="warn">Preview mode:</span> accept the HIT before submitting.'
+    : "Submitting sends your answers directly to MTurk.";
+  $("answersJson").value = JSON.stringify(buildPayload());
+  updateProgress();
+}
+
+renderRubric("rubric-text");
+renderRubric("rubric-text-2");
+$("intro-count").textContent = DATASET.items.length;
+$("assignmentId").value = mturk.assignmentId;
+$("workerId").value = mturk.workerId;
+$("hitId").value = mturk.hitId;
+$("batchId").value = BATCH_ID;
+$("mturk-form").action = mturk.turkSubmitTo.replace(/\/$/, "") + "/mturk/externalSubmit";
+
+if (mturk.workerId) {
+  $("annotator-id").value = mturk.workerId;
+  $("annotator-id").readOnly = true;
+  $("btn-start").disabled = isPreview;
+  $("mturk-note").innerHTML = isPreview
+    ? '<span class="warn">Preview mode:</span> accept this HIT to start.'
+    : "Your MTurk Worker ID is recorded automatically.";
+} else {
+  $("annotator-id").placeholder = "MTurk Worker ID";
+  $("mturk-note").textContent = "Worker ID was not provided in the URL. Enter an ID to test locally.";
+}
+
+$("annotator-id").addEventListener("input", e => {
+  $("btn-start").disabled = e.target.value.trim().length < 2 || isPreview;
+});
+$("btn-start").addEventListener("click", () => {
+  annotatorId = $("annotator-id").value.trim();
+  prepareItems();
+  load();
+  $("screen-intro").classList.add("hidden");
+  $("screen-annotate").classList.remove("hidden");
+  $("progress").classList.remove("hidden");
+  renderItem();
+});
+$("cand-A").addEventListener("click", () => setAnswer({choice: "A"}));
+$("cand-B").addEventListener("click", () => setAnswer({choice: "B"}));
+document.querySelectorAll(".chip").forEach(c =>
+  c.addEventListener("click", () => setAnswer({choice: c.dataset.choice})));
+document.querySelectorAll("#conf-row button").forEach(b =>
+  b.addEventListener("click", () => setAnswer({confidence: parseInt(b.dataset.conf, 10)})));
+$("comment").addEventListener("change", e => setAnswer({comment: e.target.value}));
+$("btn-prev").addEventListener("click", () => { if (cur > 0) { cur--; save(); renderItem(); } });
+$("btn-next").addEventListener("click", () => { cur++; save(); renderItem(); });
+$("btn-finish").addEventListener("click", () => { cur = order.length; save(); renderItem(); });
+$("mturk-form").addEventListener("submit", () => {
+  $("answersJson").value = JSON.stringify(buildPayload());
+});
+</script>
+</body>
+</html>
