@@ -101,10 +101,21 @@
 
     <div class="card">
       <h2>What you will do</h2>
+      <p>This study asks how plausible different AI-exposure labels are for
+      specific work tasks. Each task shown here is a case where two automated
+      labeling approaches disagreed about the correct exposure category.</p>
       <p>For each work task you will see <b>two candidate AI-exposure labels</b>,
-      shown anonymously as <b>A</b> and <b>B</b>. Pick the label that is
-      <b>more appropriate</b> for the task according to the rubric below.
-      If both are defensible pick "Both equally plausible"; if neither fits pick "Neither".</p>
+      shown anonymously as <b>A</b> and <b>B</b>. Your job is not to guess which
+      model produced which label. Instead, use the rubric below to pick the
+      label that seems <b>most plausible for the task as written</b>. If both
+      labels are defensible, pick "Both equally plausible"; if neither fits,
+      pick "Neither".</p>
+      <p class="small">The main quantity being measured is whether access to
+      AI could reduce the time required to complete the task by at least half,
+      while preserving roughly the same quality. Focus on the task itself and
+      the practical bottleneck: is the work mostly digital, reasoning, writing,
+      coordination, physical action, visual inspection, or tied to internal
+      systems?</p>
       <p class="small">Your answers are saved in this browser automatically. At the end, click
       <b>Send answers to MTurk page</b>, then return to MTurk and click the MTurk Submit button.</p>
     </div>
@@ -197,10 +208,10 @@ const DATASET = {"meta": {"batch_id": "curated_easy_pro_ours_150", "built": "202
 const BATCH_ID = "curated_easy_pro_ours_150";
 const RUBRIC = DATASET.meta.exposure_rubric;
 const LABEL_DESCRIPTIONS = {
-  "E0": "No exposure: AI may help, but cannot cut task time by 50%+.",
-  "E1": "Direct exposure: a 2026 agentic chatbot can cut task time by 50%+ using standard browser/workspace tools.",
-  "E2": "Application exposure: custom software or deeper enterprise integrations are needed for a 50%+ time cut.",
-  "E3": "Image exposure: image/PDF/video understanding is the key extra capability needed for a 50%+ time cut."
+  "E0": "No exposure: AI may help, but cannot cut task time by 50%+. Example: physically inspecting, repairing, supervising, or interacting in person.",
+  "E1": "Direct exposure: a 2026 agentic chatbot can cut task time by 50%+ using standard browser/workspace tools. Example: drafting, summarizing, researching, translating, or filling routine digital forms.",
+  "E2": "Application exposure: a chatbot alone is not enough, but custom software or deeper enterprise integrations could cut task time by 50%+. Example: automating work across internal databases, compliance systems, CRM/ERP tools, or scheduling systems.",
+  "E3": "Image exposure: image/PDF/video understanding is the key extra capability needed for a 50%+ time cut. Example: reading scanned forms, interpreting diagrams, extracting information from images, or analyzing visual evidence."
 };
 const SHORT_RUBRIC_ROWS = [
   ["E0", LABEL_DESCRIPTIONS.E0],
